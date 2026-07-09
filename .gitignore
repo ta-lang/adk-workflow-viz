@@ -1,0 +1,8 @@
+.env
+node_modules/
+.playwright-mcp/
+public/
+cloud-run/
+__pycache__/
+*.pyc
+.DS_Store
