@@ -1,43 +1,41 @@
-# Google Cloud Day Taipei '26 — ADK Multi-Agent Workshop
+# Google Cloud Day Taipei '26 — Vibe Coding Challenge (703)
 
-Google ADK v2.4.0 多智能體系統工作坊，包含三種 Workflow Agent 模式：Sequential、Parallel、Loop。
+**ADK Agent Workflow Visualizer** — Vibe Coding Challenge Quest 參賽作品。
+
+👉 **作品展示：** [https://ta-lang.github.io/adk-workflow-viz/](https://ta-lang.github.io/adk-workflow-viz/)
 
 ## 專案結構
 
 ```
 Skills_Google/
-├── adk-lab/                          # ADK 實作 Lab
-│   ├── main.py                       # 三種 Workflow Agent 範例
-│   ├── skills/research_skill/        # ADK Skills 範例
+├── index.html                       # Vibe Coding Challenge 作品（單一 HTML）
+├── adk-lab/                         # ADK 實作 Lab（701 工作坊）
+│   ├── main.py                      # 三種 Workflow Agent 範例
+│   ├── skills/research_skill/       # ADK Skills 範例
 │   │   ├── SKILL.md
 │   │   └── references/search_guide.md
-│   └── .env                          # Gemini API Key 設定
+│   └── .env                         # Gemini API Key 設定
 ├── Google_Cloud_Day_Taipei_26_ADK_Workshop.pdf  # 課程簡報
+├── vibecoding-challenges.csv        # Challenge 提示詞模板
 └── README.md
 ```
 
-## 環境需求
+## 作品說明
 
-- Python 3.13+
-- `google-adk` v2.4.0
-- Gemini API Key（免費方案可用）
+**Agent Workflow Visualizer** 是一個 AI 驅動的 Multi-Agent 工作流設計與可視化工具：
 
-## 快速開始
+- **AI 驅動**：串接 Gemini API，輸入業務流程描述即可自動生成 Agent 工作流
+- **三種架構**：支援 Sequential（線性）、Parallel（並行）、Loop（循環）三種模式
+- **即時可視化**：使用 Mermaid.js 將工作流渲染為流程圖
+- **模擬執行**：Gemini 模擬各 Agent 的執行過程，輸出詳細 Log
 
-```bash
-cd adk-lab
-pip install google-adk
-# 將 .env 中的 GEMINI_API_KEY 換成你的 Key
-python main.py
-```
+### 使用方式
 
-## 三種 Workflow 類型
-
-| 類型 | 流程 | 適用場景 |
-|------|------|----------|
-| Sequential | Extract → Analyze → Summarize | 線性資料處理管線 |
-| Parallel | Market + Tech + Risk 並行分析 | 多面向同時分析 |
-| Loop | Draft → Review → Fix（最多 3 次迭代） | 反覆改善直到品質達標 |
+1. 輸入 Gemini API Key（可從 [Google AI Studio](https://aistudio.google.com/apikey) 取得）
+2. 描述一個業務流程（如：客戶訂單處理流程）
+3. 選擇 Workflow 類型（Sequential / Parallel / Loop）
+4. 點擊「Generate with Gemini」產生流程圖
+5. 點擊「Simulate Run」模擬 Agent 執行
 
 ## 參考資源
 
