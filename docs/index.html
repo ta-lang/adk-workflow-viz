@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADK Agent Workflow Visualizer</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+* { font-family: 'Inter', system-ui, sans-serif; }
+code, pre, .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+.mermaid svg { max-width: 100%; height: auto; }
+.agent-card { transition: all 0.2s ease; }
+.agent-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+.log-entry { border-left: 3px solid transparent; }
+.log-entry.info { border-left-color: #3b82f6; }
+.log-entry.success { border-left-color: #22c55e; }
+.log-entry.warning { border-left-color: #eab308; }
+.log-entry.error { border-left-color: #ef4444; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+.pulse { animation: pulse 1.4s infinite; }
+.pulse:nth-child(2) { animation-delay: 0.2s; }
+.pulse:nth-child(3) { animation-delay: 0.4s; }
+</style>
+</head>
+<body class="bg-slate-900 text-gray-100 min-h-screen">
+<div class="max-w-7xl mx-auto p-4 lg:p-6">
+  <header class="mb-6 flex items-start justify-between">
+    <div>
+      <h1 class="text-2xl lg:text-3xl font-bold text-white flex items-center gap-3">
+        <span class="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center text-sm font-bold">ADK</span>
+        Agent Workflow Visualizer
+      </h1>
+      <p class="text-gray-400 mt-1 text-sm">Powered by Gemini API — Design & simulate Multi-Agent workflows</p>
+    </div>
+    <div class="text-right text-xs text-gray-500">
+      <div id="apiStatus" class="flex items-center gap-1.5 justify-end">
+        <span class="w-2 h-2 rounded-full bg-gray-600"></span>
+        <span>API key not set</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+    <div class="xl:col-span-2 space-y-4">
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">API Key</h2>
+        <div class="flex gap-2">
+          <input id="apiKeyInput" type="password" placeholder="Enter your Gemini API key" class="flex-1 bg-slate-700/50 text-sm text-gray-200 px-3 py-2 rounded-lg border border-slate-600 outline-none focus:border-blue-400">
+          <button onclick="setApiKey()" class="px-4 py-2 bg-blue-500 rounded-lg text-sm font-medium hover:bg-blue-400 transition">Set</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">Business Process</h2>
+        <textarea id="processInput" rows="3" placeholder="Describe a business process... e.g., Customer order fulfillment with inventory check, payment, and shipping" class="w-full bg-slate-700/50 text-sm text-gray-200 px-3 py-2 rounded-lg border border-slate-600 outline-none focus:border-blue-400 resize-none">Customer order fulfillment: verify inventory, process payment, arrange shipping, send confirmation</textarea>
+        <div class="mt-3">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Workflow Type</h3>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="setWf('sequential')" id="wf-seq" class="p-2.5 rounded-lg border text-xs font-medium transition bg-blue-500/20 border-blue-500 text-blue-300">Sequential</button>
+            <button onclick="setWf('parallel')" id="wf-par" class="p-2.5 rounded-lg border text-xs font-medium transition bg-slate-700 border-slate-600 text-gray-400">Parallel</button>
+            <button onclick="setWf('loop')" id="wf-loo" class="p-2.5 rounded-lg border text-xs font-medium transition bg-slate-700 border-slate-600 text-gray-400">Loop</button>
+          </div>
+        </div>
+        <button onclick="generateFlow()" id="genBtn" class="mt-3 w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-semibold text-sm hover:from-blue-400 hover:to-purple-500 transition shadow-lg disabled:opacity-50">Generate with Gemini</button>
+      </div>
+
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">Agent Details</h2>
+        <div id="agentInfo" class="text-xs text-gray-400 space-y-1.5"></div>
+        <button onclick="simulateRun()" id="simBtn" class="mt-3 w-full py-2 px-4 bg-slate-700 rounded-lg text-sm font-medium hover:bg-slate-600 transition disabled:opacity-50">Simulate Run</button>
+      </div>
+    </div>
+
+    <div class="xl:col-span-3 space-y-4">
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Flow Diagram</h2>
+          <div class="flex gap-2">
+            <button onclick="downloadSVG()" class="text-xs text-gray-400 hover:text-white transition">Download SVG</button>
+            <button onclick="toggleDebug()" class="text-xs text-gray-400 hover:text-white transition">Show Mermaid</button>
+          </div>
+        </div>
+        <div id="mermaidBox" class="bg-slate-900/50 rounded-lg p-4 min-h-[260px] flex items-center justify-center overflow-auto">
+          <div class="text-gray-500 text-sm text-center">Enter API key + describe process → <span class="text-blue-400">Generate</span></div>
+        </div>
+        <pre id="debugMermaid" class="hidden mt-3 bg-black/40 rounded-lg p-3 text-xs text-gray-400 overflow-x-auto"></pre>
+      </div>
+
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Simulation Log</h2>
+          <button onclick="clearLogs()" class="text-xs text-gray-400 hover:text-white transition">Clear</button>
+        </div>
+        <div id="logBox" class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-xs space-y-1.5">
+          <div class="text-gray-500 text-center py-6">Generate a flow first, then press <span class="text-blue-400">Simulate Run</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'dark', flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' } });
+
+let API_KEY = '';
+let wfType = 'sequential';
+let lastMermaid = '';
+let lastAgents = [];
+
+const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+function setApiKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k) return;
+  API_KEY = k;
+  document.getElementById('apiKeyInput').value = '••••••••' + k.slice(-4);
+  const st = document.getElementById('apiStatus');
+  st.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span>API ready</span>';
+}
+
+function setWf(t) {
+  wfType = t;
+  ['seq','par','loo'].forEach(id => {
+    const btn = document.getElementById('wf-'+id);
+    const active = id === (t === 'sequential' ? 'seq' : t === 'parallel' ? 'par' : 'loo');
+    btn.className = active
+      ? 'p-2.5 rounded-lg border text-xs font-medium transition bg-blue-500/20 border-blue-500 text-blue-300'
+      : 'p-2.5 rounded-lg border text-xs font-medium transition bg-slate-700 border-slate-600 text-gray-400';
+  });
+}
+
+async function callGemini(systemPrompt, userPrompt) {
+  if (!API_KEY) { alert('Please set your Gemini API key first'); return null; }
+  const resp = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 1024, topP: 0.95 },
+    }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`API error: ${resp.status} - ${err}`);
+  }
+  const data = await resp.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+const SYSTEM_FLOW = `You are an expert in Multi-Agent system design and Mermaid.js.
+Generate ONLY a Mermaid.js flowchart TD definition (no markdown fences, no explanations).
+
+Workflow types:
+- sequential: linear chain. START -> Agent1 -> Agent2 -> ... -> END
+- parallel: START -> Router -> [Agent1, Agent2, Agent3] -> Merge -> END
+- loop: START -> Agent1 -> Agent2 -> Check -> (Pass->END | Fix->Agent1)
+
+Use format: flowchart TD
+  NODE1["Label<br/><small>role</small>"]
+  NODE1 -->|tool| NODE2`;
+
+async function generateFlow() {
+  const desc = document.getElementById('processInput').value.trim();
+  if (!desc) { alert('Describe a business process first'); return; }
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  document.getElementById('mermaidBox').innerHTML = '<div class="text-gray-400 text-sm"><span class="pulse">.</span><span class="pulse">.</span><span class="pulse">.</span> Gemini is designing your workflow...</div>';
+
+  try {
+    const mermaidDef = await callGemini(SYSTEM_FLOW,
+      `Business process: ${desc}\nWorkflow type: ${wfType}\n\nMermaid diagram:`
+    );
+    if (!mermaidDef) return;
+
+    lastMermaid = mermaidDef.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
+
+    const container = document.getElementById('mermaidBox');
+    const { svg } = await mermaid.render('wf_' + Date.now(), lastMermaid);
+    container.innerHTML = svg;
+
+    document.getElementById('debugMermaid').textContent = lastMermaid;
+
+    // Parse agents from mermaid
+    lastAgents = [];
+    const nodeRe = /(\w+)\["(.+?)"\]/g;
+    let m;
+    while ((m = nodeRe.exec(lastMermaid)) !== null) {
+      if (m[1] !== 'START' && m[1] !== 'END' && m[1] !== 'Router' && m[1] !== 'Merge' && m[1] !== 'Check') {
+        lastAgents.push({ name: m[2].split('<br/>')[0], role: m[2].includes('small>') ? m[2].split('small>')[1].replace('</', '') : '' });
+      }
+    }
+
+    document.getElementById('agentInfo').innerHTML = lastAgents.length
+      ? lastAgents.map(a => `<div><span class="text-blue-300">●</span> ${a.name}${a.role ? ' — ' + a.role : ''}</div>`).join('')
+      : '<div class="text-gray-500">Auto-detected from flow</div>';
+  } catch (e) {
+    document.getElementById('mermaidBox').innerHTML = `<div class="text-red-400 text-sm">${e.message}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Generate with Gemini';
+}
+
+const SYSTEM_SIM = `You are an agent execution simulator. Return ONLY a JSON array of log entries.
+Each entry: { "agent": "name", "message": "what happened", "type": "info|success|warning|error" }
+Generate 6-10 realistic log entries showing the workflow execution sequence with timings.`;
+
+async function simulateRun() {
+  if (!lastMermaid) { alert('Generate a workflow first'); return; }
+  if (!lastAgents.length) { alert('No agents detected in the flow'); return; }
+  document.getElementById('logBox').innerHTML = '';
+  const btn = document.getElementById('simBtn');
+  btn.disabled = true; btn.textContent = 'Simulating...';
+  const logEl = document.getElementById('logBox');
+
+  function addLog(agent, msg, type = 'info') {
+    const e = document.createElement('div');
+    e.className = `log-entry ${type} fade-in pl-2 py-1 text-xs`;
+    e.innerHTML = `<span class="text-gray-500">[${new Date().toLocaleTimeString()}]</span> <span class="text-gray-400">${agent}:</span> <span class="${type === 'error' ? 'text-red-400' : type === 'warning' ? 'text-yellow-300' : type === 'success' ? 'text-green-400' : 'text-gray-200'}">${msg}</span>`;
+    logEl.appendChild(e);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  try {
+    const agentsText = lastAgents.map(a => `- ${a.name}: ${a.role}`).join('\n');
+    const simJson = await callGemini(SYSTEM_SIM,
+      `Workflow: ${wfType}\nAgents:\n${agentsText}\n\nJSON log array:`
+    );
+    if (!simJson) return;
+
+    let logs;
+    try {
+      logs = JSON.parse(simJson.replace(/```json/gi, '').replace(/```/g, '').trim());
+    } catch {
+      addLog('System', 'Failed to parse simulation JSON', 'error');
+      btn.disabled = false; btn.textContent = 'Simulate Run';
+      return;
+    }
+
+    for (const log of logs) {
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
+      addLog(log.agent || 'System', log.message || '...', log.type || 'info');
+    }
+  } catch (e) {
+    addLog('System', `Error: ${e.message}`, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Simulate Run';
+}
+
+function clearLogs() {
+  document.getElementById('logBox').innerHTML = '<div class="text-gray-500 text-center py-6">Logs cleared</div>';
+}
+
+function downloadSVG() {
+  const svg = document.querySelector('#mermaidBox svg');
+  if (!svg) return;
+  const c = svg.cloneNode(true);
+  const s = new XMLSerializer().serializeToString(c);
+  const b = new Blob([s], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = 'agent-workflow.svg'; a.click();
+}
+
+function toggleDebug() {
+  document.getElementById('debugMermaid').classList.toggle('hidden');
+}
+</script>
+</body>
+</html>
